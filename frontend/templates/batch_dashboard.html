@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}Batch Processing - SmartPAN{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="fw-bold mb-0" style="letter-spacing:-0.3px;">Batch Processing</h4>
+        <small style="color:var(--gray-400);">Automated PAN document verification pipeline</small>
+    </div>
+    <form method="post" action="/api/batch/trigger" id="batchForm">
+        <button type="submit" class="btn btn-primary btn-sm" id="runBatchBtn">
+            <i class="bi bi-play-fill me-1"></i>Run Batch Now
+        </button>
+    </form>
+</div>
+
+<!-- Stats Cards (from DB) -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card p-3 text-center animate-in">
+            <div style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--primary);">Total Processed</div>
+            <div class="fw-bold" style="font-size:1.8rem;color:var(--gray-700);">{{ stats.total }}</div>
+            <small style="color:var(--gray-400);">All documents</small>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card p-3 text-center animate-in">
+            <div style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--success);">Approved</div>
+            <div class="fw-bold" style="font-size:1.8rem;color:var(--success);">{{ stats.approved }}</div>
+            <small style="color:var(--gray-400);">Score &ge; 75%</small>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card p-3 text-center animate-in">
+            <div style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--warning);">Manual Review</div>
+            <div class="fw-bold" style="font-size:1.8rem;color:var(--warning);">{{ stats.manual }}</div>
+            <small style="color:var(--gray-400);">Score 40-75%</small>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card p-3 text-center animate-in">
+            <div style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--danger);">Rejected</div>
+            <div class="fw-bold" style="font-size:1.8rem;color:var(--danger);">{{ stats.rejected }}</div>
+            <small style="color:var(--gray-400);">Score &lt; 40%</small>
+        </div>
+    </div>
+</div>
+
+<!-- Avg Score + Errors -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card p-3 animate-in">
+            <div style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--gray-400);">Avg Match Score</div>
+            <div class="fw-bold" style="font-size:1.5rem;color:var(--primary);">{{ stats.avg_score }}%</div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card p-3 animate-in">
+            <div style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--danger);">Errors</div>
+            <div class="fw-bold" style="font-size:1.5rem;color:var(--danger);">{{ stats.errors }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Documents Table -->
+<div class="card animate-in">
+    <div class="card-section">
+        <div class="section-title">
+            <i class="bi bi-table"></i>Batch Documents
+        </div>
+        {% if documents %}
+        <div class="table-responsive">
+            <table class="table table-pro mb-0">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Filename</th>
+                        <th>Applicant</th>
+                        <th>Pages</th>
+                        <th>Doc Types</th>
+                        <th>Score</th>
+                        <th>Status</th>
+                        <th>Batch</th>
+                        <th>Processed</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in documents %}
+                    <tr>
+                        <td><strong>#{{ doc.id }}</strong></td>
+                        <td style="max-width:180px;" class="text-truncate" title="{{ doc.original_filename }}">{{ doc.original_filename or doc.filename }}</td>
+                        <td>{{ doc.applicant_name or "N/A" }}</td>
+                        <td>{{ doc.total_pages }}</td>
+                        <td><small>{{ doc.detected_doc_types or "—" }}</small></td>
+                        <td>
+                            <strong style="color:{% if doc.overall_score >= 75 %}var(--success){% elif doc.overall_score >= 40 %}var(--warning){% else %}var(--danger){% endif %};">
+                                {{ doc.overall_score }}%
+                            </strong>
+                        </td>
+                        <td>
+                            {% if doc.document_status == 'Approved' %}
+                                <span class="status-pill status-pill-success"><i class="bi bi-check-circle-fill"></i>Approved</span>
+                            {% elif doc.document_status == 'Manual' %}
+                                <span class="status-pill status-pill-warning"><i class="bi bi-exclamation-circle-fill"></i>Manual</span>
+                            {% elif doc.document_status == 'Rejected' %}
+                                <span class="status-pill status-pill-danger"><i class="bi bi-x-circle-fill"></i>Rejected</span>
+                            {% elif doc.document_status == 'Error' %}
+                                <span class="status-pill" style="background:var(--danger-light);color:var(--danger);"><i class="bi bi-bug-fill"></i>Error</span>
+                            {% else %}
+                                <span class="status-pill">{{ doc.document_status }}</span>
+                            {% endif %}
+                        </td>
+                        <td><small style="color:var(--gray-400);">{{ doc.batch_id or "—" }}</small></td>
+                        <td><small style="color:var(--gray-400);">{{ doc.processed_at[:16] if doc.processed_at else "—" }}</small></td>
+                        <td>
+                            <a href="/batch/document/{{ doc.id }}" class="btn btn-sm btn-outline-primary" style="font-size:0.75rem;">
+                                <i class="bi bi-eye"></i> View
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-inbox" style="font-size:2.5rem;color:var(--gray-300);"></i>
+            <p class="mt-2" style="color:var(--gray-400);">No batch documents processed yet.</p>
+            <p style="color:var(--gray-400);font-size:0.85rem;">Place PDF files in <code>PAN_documents/</code> folder and click <strong>Run Batch Now</strong>.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.getElementById('batchForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('runBatchBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Processing...';
+    try {
+        const resp = await fetch('/api/batch/trigger', { method: 'POST' });
+        const data = await resp.json();
+        alert(`Batch complete! Processed: ${data.processed}, Approved: ${data.approved}, Manual: ${data.manual}, Rejected: ${data.rejected}, Errors: ${data.errors}`);
+        window.location.reload();
+    } catch (err) {
+        alert('Batch processing failed: ' + err.message);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-play-fill me-1"></i>Run Batch Now';
+    }
+});
+</script>
+{% endblock %}

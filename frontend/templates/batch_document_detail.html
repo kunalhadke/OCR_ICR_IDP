@@ -1,0 +1,390 @@
+{% extends "base.html" %}
+{% block title %}Batch Document #{{ doc.id }} - SmartPAN{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="fw-bold mb-0" style="letter-spacing:-0.3px;">
+            Batch Document #{{ doc.id }}
+        </h4>
+        <small style="color:var(--gray-400);">{{ doc.original_filename or doc.filename }} &middot; {{ doc.total_pages }} page(s)</small>
+    </div>
+    <div class="d-flex gap-2">
+        {% if doc.document_status == 'Manual' %}
+        <form method="post" action="/batch/approve/{{ doc.id }}" onsubmit="return confirm('Approve this document?');">
+            <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check-lg me-1"></i>Approve</button>
+        </form>
+        <form method="post" action="/batch/reject/{{ doc.id }}" onsubmit="return confirm('Reject this document?');">
+            <button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-x-lg me-1"></i>Reject</button>
+        </form>
+        {% endif %}
+        <a href="/batch/dashboard" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Dashboard
+        </a>
+    </div>
+</div>
+
+<!-- Result Banner -->
+<div class="card result-banner mb-4 animate-in
+    {% if doc.document_status == 'Approved' %}result-success
+    {% elif doc.document_status == 'Manual' %}result-warning
+    {% elif doc.document_status == 'Rejected' %}result-danger
+    {% else %}result-danger{% endif %}">
+    <div class="row align-items-center g-3">
+        <div class="col-auto">
+            <div class="score-circle
+                {% if doc.document_status == 'Approved' %}
+                    " style="color:var(--success);border-color:var(--success);background:var(--success-light);">
+                {% elif doc.document_status == 'Manual' %}
+                    " style="color:var(--warning);border-color:var(--warning);background:var(--warning-light);">
+                {% else %}
+                    " style="color:var(--danger);border-color:var(--danger);background:var(--danger-light);">
+                {% endif %}
+                {{ doc.overall_score }}<span style="font-size:0.7rem;font-weight:600;">%</span>
+            </div>
+        </div>
+        <div class="col">
+            <div class="mb-1">
+                {% if doc.document_status == 'Approved' %}
+                    <span class="status-pill status-pill-success"><i class="bi bi-check-circle-fill"></i>Approved</span>
+                {% elif doc.document_status == 'Manual' %}
+                    <span class="status-pill status-pill-warning"><i class="bi bi-exclamation-circle-fill"></i>Manual Review</span>
+                {% elif doc.document_status == 'Rejected' %}
+                    <span class="status-pill status-pill-danger"><i class="bi bi-x-circle-fill"></i>Rejected</span>
+                {% elif doc.document_status == 'Error' %}
+                    <span class="status-pill" style="background:var(--danger-light);color:var(--danger);"><i class="bi bi-bug-fill"></i>Error</span>
+                {% else %}
+                    <span class="status-pill">{{ doc.document_status }}</span>
+                {% endif %}
+                <span class="badge ms-2" style="background:var(--gray-100);color:var(--gray-500);font-size:0.65rem;">{{ doc.verification_bucket }}</span>
+            </div>
+            <small style="color:var(--gray-500);">
+                Applicant: <strong style="color:var(--gray-700);">{{ doc.applicant_name or "N/A" }}</strong>
+                &middot; Batch: {{ doc.batch_id or "N/A" }}
+                &middot; Processed: {{ doc.processed_at[:19] if doc.processed_at else "N/A" }}
+            </small>
+        </div>
+    </div>
+</div>
+
+{% if doc.processing_error %}
+<!-- Error Info -->
+<div class="card mb-4 animate-in" style="border-left:3px solid var(--danger);">
+    <div class="card-section">
+        <div class="section-title" style="color:var(--danger);">
+            <i class="bi bi-exclamation-triangle"></i>Processing Error
+        </div>
+        <pre class="ocr-text" style="color:var(--danger);">{{ doc.processing_error }}</pre>
+    </div>
+</div>
+{% endif %}
+
+<!-- Per-Page Document Detection -->
+{% if doc.page_analysis %}
+<div class="card mb-4 animate-in">
+    <div class="card-section">
+        <div class="section-title">
+            <i class="bi bi-layers"></i>Per-Page Document Detection
+        </div>
+        <div class="row g-2">
+            {% for page in doc.page_analysis %}
+            <div class="col-md-4 col-lg-3">
+                <div class="card page-card p-3 h-100 border"
+                    role="button"
+                    data-bs-toggle="modal"
+                    data-bs-target="#pageModal{{ loop.index }}"
+                    title="Click to view document">
+                    <div class="card-accent" style="background:
+                        {% if 'PAN' in page.doc_type %}var(--primary)
+                        {% elif 'Aadhaar' in page.doc_type %}var(--success)
+                        {% elif 'Passport' in page.doc_type %}#0284c7
+                        {% elif 'Driving' in page.doc_type %}var(--warning)
+                        {% elif 'Voter' in page.doc_type %}var(--gray-500)
+                        {% else %}var(--danger){% endif %};"></div>
+                    <div class="d-flex justify-content-between align-items-start mb-2 mt-1">
+                        <span class="badge" style="background:var(--gray-800);font-size:0.65rem;">Page {{ page.page_num }}</span>
+                        <span class="badge" style="background:{% if page.confidence >= 80 %}var(--success-light);color:var(--success){% elif page.confidence >= 50 %}var(--warning-light);color:var(--warning){% else %}var(--danger-light);color:var(--danger){% endif %};font-size:0.65rem;font-weight:700;">
+                            {{ page.confidence }}%
+                        </span>
+                    </div>
+                    <div class="fw-semibold mb-2" style="font-size:0.85rem;color:var(--gray-700);">
+                        {% if 'PAN' in page.doc_type %}<i class="bi bi-file-earmark-text me-1" style="color:var(--primary);"></i>
+                        {% elif 'Aadhaar' in page.doc_type %}<i class="bi bi-person-badge me-1" style="color:var(--success);"></i>
+                        {% elif 'Passport' in page.doc_type %}<i class="bi bi-globe2 me-1" style="color:#0284c7;"></i>
+                        {% elif 'Driving' in page.doc_type %}<i class="bi bi-car-front me-1" style="color:var(--warning);"></i>
+                        {% elif 'Voter' in page.doc_type %}<i class="bi bi-card-checklist me-1" style="color:var(--gray-500);"></i>
+                        {% else %}<i class="bi bi-question-circle me-1" style="color:var(--danger);"></i>{% endif %}
+                        {{ page.doc_type }}
+                    </div>
+                    <small class="text-truncate-2" style="color:var(--gray-400);font-size:0.75rem;line-height:1.4;">
+                        {{ page.text_snippet[:80] }}{% if page.text_snippet|length > 80 %}...{% endif %}
+                    </small>
+                    <div class="text-end mt-2">
+                        <small class="fw-semibold" style="color:var(--primary);font-size:0.7rem;">
+                            <i class="bi bi-eye me-1"></i>View
+                        </small>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% if doc.proof_doc_types %}
+        <div class="mt-3 pt-3" style="border-top:1px solid var(--gray-100);">
+            <small style="color:var(--gray-400);">
+                <strong style="color:var(--gray-500);">Proof document(s):</strong> {{ doc.proof_doc_types }}
+            </small>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Per-Page Detail Modals -->
+{% for page in doc.page_analysis %}
+<div class="modal fade" id="pageModal{{ loop.index }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header" style="background:
+                {% if 'PAN' in page.doc_type %}var(--primary)
+                {% elif 'Aadhaar' in page.doc_type %}var(--success)
+                {% elif 'Passport' in page.doc_type %}#0284c7
+                {% elif 'Driving' in page.doc_type %}var(--warning)
+                {% elif 'Voter' in page.doc_type %}var(--gray-500)
+                {% else %}var(--danger){% endif %};color:#fff;">
+                <h6 class="modal-title fw-bold mb-0">
+                    {% if 'PAN' in page.doc_type %}<i class="bi bi-file-earmark-text me-2"></i>
+                    {% elif 'Aadhaar' in page.doc_type %}<i class="bi bi-person-badge me-2"></i>
+                    {% elif 'Passport' in page.doc_type %}<i class="bi bi-globe2 me-2"></i>
+                    {% elif 'Driving' in page.doc_type %}<i class="bi bi-car-front me-2"></i>
+                    {% elif 'Voter' in page.doc_type %}<i class="bi bi-card-checklist me-2"></i>
+                    {% else %}<i class="bi bi-question-circle me-2"></i>{% endif %}
+                    Page {{ page.page_num }} &mdash; {{ page.doc_type }}
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex gap-2 mb-3">
+                    <span class="badge" style="background:var(--gray-800);">Page {{ page.page_num }}</span>
+                    <span class="badge" style="background:{% if page.confidence >= 80 %}var(--success){% elif page.confidence >= 50 %}var(--warning){% else %}var(--danger){% endif %};">
+                        <i class="bi bi-bullseye me-1"></i>{{ page.confidence }}% Confidence
+                    </span>
+                </div>
+                {% if page.image_url %}
+                <div class="mb-3">
+                    <div class="section-title" style="font-size:0.7rem;"><i class="bi bi-image"></i>Original Document</div>
+                    <div class="text-center p-3 rounded-3" style="background:var(--gray-50);border:1px solid var(--gray-200);max-height:500px;overflow:auto;">
+                        <img src="{{ page.image_url }}" alt="Page {{ page.page_num }}" class="img-fluid rounded" style="max-width:100%;">
+                    </div>
+                </div>
+                {% endif %}
+                <div>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="section-title mb-0" style="font-size:0.7rem;"><i class="bi bi-text-paragraph"></i>Extracted OCR Text</div>
+                        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#ocrText{{ loop.index }}" style="font-size:0.7rem;padding:0.2rem 0.6rem;">Show/Hide</button>
+                    </div>
+                    <div class="collapse mt-2" id="ocrText{{ loop.index }}">
+                        <pre class="ocr-text">{{ page.text_snippet or "No text extracted for this page." }}</pre>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- Field-by-Field Comparison -->
+<div class="card mb-4 animate-in">
+    <div class="card-section">
+        <div class="section-title">
+            <i class="bi bi-arrows-expand"></i>Field-by-Field Comparison
+        </div>
+        <div class="table-responsive">
+            <table class="table table-pro field-comparison mb-0">
+                <thead>
+                    <tr>
+                        <th style="width:12%">Field</th>
+                        <th style="width:30%">PAN Application Form</th>
+                        <th style="width:30%">Proof Document(s)</th>
+                        <th style="width:10%">Match</th>
+                        <th style="width:18%">Score</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Name -->
+                    <tr>
+                        <td>Name</td>
+                        <td><span class="field-value">{{ doc.form_name or '<span style="color:var(--gray-300);font-style:italic;">Not extracted</span>'|safe }}</span></td>
+                        <td><span class="field-value">{{ doc.proof_name or '<span style="color:var(--gray-300);font-style:italic;">Not extracted</span>'|safe }}</span></td>
+                        <td class="text-center">
+                            {% if doc.name_match %}<i class="bi bi-check-circle-fill" style="color:var(--success);font-size:1.2rem;"></i>
+                            {% else %}<i class="bi bi-x-circle-fill" style="color:var(--danger);font-size:1.2rem;"></i>{% endif %}
+                        </td>
+                        <td>
+                            {% if doc.name_match %}<span class="status-pill status-pill-success"><i class="bi bi-check"></i>Match</span>
+                            {% else %}<span class="status-pill status-pill-danger"><i class="bi bi-x"></i>No Match</span>{% endif %}
+                            <br><small style="color:var(--gray-400);font-size:0.65rem;">Fuzzy &ge;80%</small>
+                        </td>
+                    </tr>
+                    <!-- DOB -->
+                    <tr>
+                        <td>Date of Birth</td>
+                        <td><span class="field-value">{{ doc.form_dob or '<span style="color:var(--gray-300);font-style:italic;">Not extracted</span>'|safe }}</span></td>
+                        <td><span class="field-value">{{ doc.proof_dob or '<span style="color:var(--gray-300);font-style:italic;">Not extracted</span>'|safe }}</span></td>
+                        <td class="text-center">
+                            {% if doc.dob_match %}<i class="bi bi-check-circle-fill" style="color:var(--success);font-size:1.2rem;"></i>
+                            {% else %}<i class="bi bi-x-circle-fill" style="color:var(--danger);font-size:1.2rem;"></i>{% endif %}
+                        </td>
+                        <td>
+                            {% if doc.dob_match %}<span class="status-pill status-pill-success"><i class="bi bi-check"></i>100%</span>
+                            {% else %}<span class="status-pill status-pill-danger"><i class="bi bi-x"></i>No Match</span>{% endif %}
+                            <br><small style="color:var(--gray-400);font-size:0.65rem;">Exact match</small>
+                        </td>
+                    </tr>
+                    <!-- Pincode -->
+                    <tr>
+                        <td>Pincode</td>
+                        <td><span class="field-value">{{ doc.form_pincode or '<span style="color:var(--gray-300);font-style:italic;">Not extracted</span>'|safe }}</span></td>
+                        <td><span class="field-value">{{ doc.proof_pincode or '<span style="color:var(--gray-300);font-style:italic;">Not extracted</span>'|safe }}</span></td>
+                        <td class="text-center">
+                            {% if doc.pincode_match %}<i class="bi bi-check-circle-fill" style="color:var(--success);font-size:1.2rem;"></i>
+                            {% else %}<i class="bi bi-x-circle-fill" style="color:var(--danger);font-size:1.2rem;"></i>{% endif %}
+                        </td>
+                        <td>
+                            {% if doc.pincode_match %}<span class="status-pill status-pill-success"><i class="bi bi-check"></i>Exact</span>
+                            {% else %}<span class="status-pill status-pill-danger"><i class="bi bi-x"></i>No Match</span>{% endif %}
+                            <br><small style="color:var(--gray-400);font-size:0.65rem;">Exact match</small>
+                        </td>
+                    </tr>
+                    <!-- Address -->
+                    <tr>
+                        <td>Address</td>
+                        <td><span class="field-value" style="font-size:0.8rem;">{{ doc.form_address or '<span style="color:var(--gray-300);font-style:italic;">Not extracted</span>'|safe }}</span></td>
+                        <td><span class="field-value" style="font-size:0.8rem;">{{ doc.proof_address or '<span style="color:var(--gray-300);font-style:italic;">Not extracted</span>'|safe }}</span></td>
+                        <td class="text-center">
+                            {% if doc.address_score >= 70 %}<i class="bi bi-check-circle-fill" style="color:var(--success);font-size:1.2rem;"></i>
+                            {% elif doc.address_score >= 40 %}<i class="bi bi-exclamation-circle-fill" style="color:var(--warning);font-size:1.2rem;"></i>
+                            {% else %}<i class="bi bi-x-circle-fill" style="color:var(--danger);font-size:1.2rem;"></i>{% endif %}
+                        </td>
+                        <td>
+                            <div class="score-bar mb-1" style="width:80px;">
+                                <div class="score-fill" style="width:{{ doc.address_score }}%;background:{% if doc.address_score >= 70 %}var(--success){% elif doc.address_score >= 40 %}var(--warning){% else %}var(--danger){% endif %};"></div>
+                            </div>
+                            <strong style="font-size:0.875rem;">{{ doc.address_score }}%</strong>
+                            <br><small style="color:var(--gray-400);font-size:0.65rem;">Threshold 70%</small>
+                        </td>
+                    </tr>
+                    <!-- State -->
+                    <tr>
+                        <td>State</td>
+                        <td><span class="field-value">{{ doc.form_state or '<span style="color:var(--gray-300);font-style:italic;">Not extracted</span>'|safe }}</span></td>
+                        <td><span class="field-value">{{ doc.proof_state or '<span style="color:var(--gray-300);font-style:italic;">Not extracted</span>'|safe }}</span></td>
+                        <td class="text-center">
+                            {% if doc.form_state and doc.proof_state and doc.form_state.lower() == doc.proof_state.lower() %}<i class="bi bi-check-circle-fill" style="color:var(--success);font-size:1.2rem;"></i>
+                            {% else %}<i class="bi bi-dash-circle" style="color:var(--gray-300);font-size:1.2rem;"></i>{% endif %}
+                        </td>
+                        <td><small style="color:var(--gray-400);font-size:0.65rem;">Informational</small></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Score Breakdown -->
+<div class="card mb-4 animate-in">
+    <div class="card-section">
+        <div class="section-title">
+            <i class="bi bi-pie-chart"></i>Score Breakdown
+        </div>
+        <div class="row g-3">
+            <div class="col-6 col-md-3">
+                <div class="score-metric">
+                    <div class="metric-label">Name (30%)</div>
+                    <div class="metric-value {% if doc.name_match %}" style="color:var(--success);">30{% else %}" style="color:var(--danger);">0{% endif %}<span style="font-size:0.8rem;color:var(--gray-400);"> / 30</span></div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="score-metric">
+                    <div class="metric-label">DOB (25%)</div>
+                    <div class="metric-value {% if doc.dob_match %}" style="color:var(--success);">25{% else %}" style="color:var(--danger);">0{% endif %}<span style="font-size:0.8rem;color:var(--gray-400);"> / 25</span></div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="score-metric">
+                    <div class="metric-label">Pincode (20%)</div>
+                    <div class="metric-value {% if doc.pincode_match %}" style="color:var(--success);">20{% else %}" style="color:var(--danger);">0{% endif %}<span style="font-size:0.8rem;color:var(--gray-400);"> / 20</span></div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="score-metric">
+                    <div class="metric-label">Address (25%)</div>
+                    <div class="metric-value" style="color:{% if doc.address_score >= 70 %}var(--success){% elif doc.address_score >= 40 %}var(--warning){% else %}var(--danger){% endif %};">{{ "%.1f"|format(doc.address_score * 0.25) }}<span style="font-size:0.8rem;color:var(--gray-400);"> / 25</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Batch Processing Details -->
+<div class="card mb-4 animate-in">
+    <div class="card-section">
+        <div class="section-title">
+            <i class="bi bi-clock-history"></i>Processing Details
+        </div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <small style="color:var(--gray-400);font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Created</small>
+                <div class="fw-semibold" style="color:var(--gray-700);font-size:0.875rem;">{{ doc.created_at if doc.created_at else "N/A" }}</div>
+            </div>
+            <div class="col-md-4">
+                <small style="color:var(--gray-400);font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Processed</small>
+                <div class="fw-semibold" style="color:var(--gray-700);font-size:0.875rem;">{{ doc.processed_at if doc.processed_at else "N/A" }}</div>
+            </div>
+            <div class="col-md-4">
+                <small style="color:var(--gray-400);font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Batch ID</small>
+                <div class="fw-semibold" style="color:var(--gray-700);font-size:0.875rem;">{{ doc.batch_id or "N/A" }}</div>
+            </div>
+        </div>
+        {% if doc.reviewed_by %}
+        <div class="row g-3 mt-1">
+            <div class="col-md-3">
+                <small style="color:var(--gray-400);font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Reviewed By</small>
+                <div class="fw-semibold" style="color:var(--gray-700);font-size:0.875rem;">{{ doc.reviewed_by }}</div>
+            </div>
+            <div class="col-md-3">
+                <small style="color:var(--gray-400);font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Reviewed At</small>
+                <div class="fw-semibold" style="color:var(--gray-700);font-size:0.875rem;">{{ doc.reviewed_at or "N/A" }}</div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Raw OCR Text -->
+<div class="card mb-4 animate-in">
+    <div class="card-section">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="section-title mb-0">
+                <i class="bi bi-code-square"></i>Raw OCR Text
+            </div>
+            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#rawText" style="font-size:0.75rem;">Show/Hide</button>
+        </div>
+        <div class="collapse mt-3" id="rawText">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="section-title" style="font-size:0.65rem;margin-bottom:0.5rem;">PAN Form Pages</div>
+                    <pre class="ocr-text" style="max-height:300px;">{{ doc.form_raw_text or "No text extracted" }}</pre>
+                </div>
+                <div class="col-md-6">
+                    <div class="section-title" style="font-size:0.65rem;margin-bottom:0.5rem;">Proof Document Pages</div>
+                    <pre class="ocr-text" style="max-height:300px;">{{ doc.proof_raw_text or "No text extracted" }}</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

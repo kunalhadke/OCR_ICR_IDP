@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Upload Document - SmartPAN Verification{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<div class="hero-section text-white rounded-4 p-5 mb-4 animate-in">
+    <div class="row align-items-center position-relative">
+        <div class="col-lg-7">
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <span class="status-pill" style="background:rgba(255,255,255,0.12);color:#93c5fd;">
+                    <i class="bi bi-cpu"></i> AI-Powered
+                </span>
+            </div>
+            <h1 class="fw-bold mb-3" style="font-size:2.25rem;letter-spacing:-0.5px;">
+                PAN Document<br>Verification System
+            </h1>
+            <p class="mb-0" style="color:#94a3b8;font-size:1.05rem;max-width:500px;line-height:1.7;">
+                Upload a combined PDF with your PAN application and supporting documents.
+                Auto-detects document types, extracts fields via OCR, and verifies data consistency.
+            </p>
+        </div>
+        <div class="col-lg-5 text-center d-none d-lg-block">
+            <i class="bi bi-shield-check" style="font-size:8rem;opacity:0.06;"></i>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Form -->
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card animate-in">
+            <div class="card-section">
+                <div class="section-title">
+                    <i class="bi bi-cloud-arrow-up"></i>Upload Document
+                </div>
+
+                <form action="/verify" method="post" enctype="multipart/form-data" id="uploadForm">
+                    <div class="upload-zone mb-4" id="dropZone">
+                        <div class="upload-icon">
+                            <i class="bi bi-file-earmark-pdf"></i>
+                        </div>
+                        <div class="fw-semibold mb-1" style="color:var(--gray-700);">
+                            Drop your PDF here or click to browse
+                        </div>
+                        <small style="color:var(--gray-400);">
+                            Combined PDF: PAN form (49A) + proof documents (Aadhaar, Passport, DL, etc.)
+                        </small>
+                        <input type="file" class="form-control mt-3" name="combined_pdf" accept=".pdf" required
+                               id="combinedPdfInput" style="max-width:400px;margin:0 auto;">
+                    </div>
+
+                    <div class="d-flex align-items-start gap-2 p-3 rounded-3 mb-4" style="background:var(--primary-light);border:1px solid #bfdbfe;">
+                        <i class="bi bi-lightbulb" style="color:var(--primary);margin-top:2px;"></i>
+                        <small style="color:var(--primary-dark);">
+                            <strong>Auto-detection:</strong> The system identifies which page is PAN form and which are proof documents. No separation needed.
+                        </small>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                            <i class="bi bi-arrow-right-circle me-2"></i>Upload & Verify
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Processing -->
+                <div class="text-center mt-4 d-none" id="processing">
+                    <div class="spinner-border text-primary mb-3" role="status" style="width:3rem;height:3rem;"></div>
+                    <h6 class="fw-semibold mb-1">Processing your document...</h6>
+                    <small style="color:var(--gray-400);">
+                        PDF &rarr; Page Images &rarr; OCR &rarr; Classification &rarr; Field Extraction &rarr; Matching
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- How It Works -->
+        <div class="card mt-4 animate-in">
+            <div class="card-section">
+                <div class="section-title">
+                    <i class="bi bi-diagram-3"></i>How It Works
+                </div>
+                <div class="d-flex gap-2 flex-wrap justify-content-between">
+                    <div class="step-item">
+                        <div class="step-circle" style="background:var(--primary-light);color:var(--primary);">
+                            <i class="bi bi-cloud-upload"></i>
+                        </div>
+                        <div class="step-label">Upload<br>PDF</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-circle" style="background:#e0f2fe;color:#0284c7;">
+                            <i class="bi bi-layers"></i>
+                        </div>
+                        <div class="step-label">Split<br>Pages</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-circle" style="background:var(--success-light);color:var(--success);">
+                            <i class="bi bi-eye"></i>
+                        </div>
+                        <div class="step-label">OCR &<br>Detect</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-circle" style="background:var(--warning-light);color:var(--warning);">
+                            <i class="bi bi-braces"></i>
+                        </div>
+                        <div class="step-label">Extract<br>Fields</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-circle" style="background:var(--danger-light);color:var(--danger);">
+                            <i class="bi bi-check2-all"></i>
+                        </div>
+                        <div class="step-label">Match &<br>Classify</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Supported Documents -->
+        <div class="card mt-4 animate-in">
+            <div class="card-section">
+                <div class="section-title">
+                    <i class="bi bi-file-earmark-check"></i>Supported Documents
+                </div>
+                <div class="row g-2">
+                    {% set docs = [
+                        ("PAN Application Form", "bi-file-earmark-text", "--primary"),
+                        ("Aadhaar Card", "bi-person-badge", "--success"),
+                        ("Passport", "bi-globe2", "#0284c7"),
+                        ("Driving License", "bi-car-front", "--warning"),
+                        ("Voter ID", "bi-card-checklist", "--gray-500"),
+                        ("Other Documents", "bi-file-earmark", "--gray-400")
+                    ] %}
+                    {% for label, icon, color in docs %}
+                    <div class="col-md-4 col-6">
+                        <div class="d-flex align-items-center gap-2 p-2 rounded-3" style="background:var(--gray-50);border:1px solid var(--gray-100);">
+                            <i class="bi {{ icon }}" style="color:var({{ color }});font-size:1.1rem;"></i>
+                            <small class="fw-semibold" style="color:var(--gray-700);font-size:0.8rem;">{{ label }}</small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const form = document.getElementById('uploadForm');
+    const dropZone = document.getElementById('dropZone');
+
+    form.addEventListener('submit', function() {
+        document.getElementById('submitBtn').disabled = true;
+        document.getElementById('submitBtn').innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+        document.getElementById('processing').classList.remove('d-none');
+    });
+
+    // Drag and drop visual feedback
+    ['dragenter','dragover'].forEach(e => {
+        dropZone.addEventListener(e, (ev) => { ev.preventDefault(); dropZone.classList.add('dragover'); });
+    });
+    ['dragleave','drop'].forEach(e => {
+        dropZone.addEventListener(e, () => { dropZone.classList.remove('dragover'); });
+    });
+</script>
+{% endblock %}

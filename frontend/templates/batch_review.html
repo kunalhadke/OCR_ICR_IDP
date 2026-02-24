@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Manual Review Queue - SmartPAN{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="fw-bold mb-0" style="letter-spacing:-0.3px;">Manual Review Queue</h4>
+        <small style="color:var(--gray-400);">Documents scoring 40-75% requiring human review</small>
+    </div>
+    <a href="/batch/dashboard" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Batch Dashboard
+    </a>
+</div>
+
+{% if documents %}
+<div class="row g-3">
+    {% for doc in documents %}
+    <div class="col-md-6 col-lg-4">
+        <div class="card animate-in h-100">
+            <div class="card-section">
+                <!-- Score badge -->
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <span class="badge" style="background:var(--warning-light);color:var(--warning);font-size:0.75rem;font-weight:700;">
+                        <i class="bi bi-exclamation-circle me-1"></i>Manual Review
+                    </span>
+                    <div class="score-circle" style="width:48px;height:48px;font-size:0.85rem;color:var(--warning);border-color:var(--warning);background:var(--warning-light);">
+                        {{ doc.overall_score }}<span style="font-size:0.55rem;">%</span>
+                    </div>
+                </div>
+
+                <!-- Applicant info -->
+                <h6 class="fw-bold mb-1" style="color:var(--gray-700);">
+                    {{ doc.applicant_name or "Unknown Applicant" }}
+                </h6>
+                <small class="d-block mb-2" style="color:var(--gray-400);">
+                    {{ doc.original_filename or doc.filename }}
+                    &middot; {{ doc.total_pages }} page(s)
+                </small>
+
+                <!-- Doc types -->
+                {% if doc.detected_doc_types %}
+                <div class="mb-3">
+                    {% for dtype in doc.detected_doc_types.split(', ') %}
+                    <span class="badge me-1 mb-1" style="background:var(--gray-100);color:var(--gray-600);font-size:0.65rem;">{{ dtype }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Match summary -->
+                <div class="d-flex gap-2 mb-3 flex-wrap">
+                    <small class="d-flex align-items-center gap-1">
+                        {% if doc.name_match %}<i class="bi bi-check-circle-fill" style="color:var(--success);"></i>{% else %}<i class="bi bi-x-circle-fill" style="color:var(--danger);"></i>{% endif %}
+                        Name
+                    </small>
+                    <small class="d-flex align-items-center gap-1">
+                        {% if doc.dob_match %}<i class="bi bi-check-circle-fill" style="color:var(--success);"></i>{% else %}<i class="bi bi-x-circle-fill" style="color:var(--danger);"></i>{% endif %}
+                        DOB
+                    </small>
+                    <small class="d-flex align-items-center gap-1">
+                        {% if doc.pincode_match %}<i class="bi bi-check-circle-fill" style="color:var(--success);"></i>{% else %}<i class="bi bi-x-circle-fill" style="color:var(--danger);"></i>{% endif %}
+                        Pincode
+                    </small>
+                    <small class="d-flex align-items-center gap-1">
+                        {% if doc.address_score >= 70 %}<i class="bi bi-check-circle-fill" style="color:var(--success);"></i>{% elif doc.address_score >= 40 %}<i class="bi bi-exclamation-circle-fill" style="color:var(--warning);"></i>{% else %}<i class="bi bi-x-circle-fill" style="color:var(--danger);"></i>{% endif %}
+                        Addr {{ doc.address_score }}%
+                    </small>
+                </div>
+
+                <!-- Actions -->
+                <div class="d-flex gap-2">
+                    <a href="/batch/document/{{ doc.id }}" class="btn btn-sm btn-outline-primary flex-fill" style="font-size:0.8rem;">
+                        <i class="bi bi-eye me-1"></i>Details
+                    </a>
+                    <form method="post" action="/batch/approve/{{ doc.id }}" class="flex-fill" onsubmit="return confirm('Approve this document?');">
+                        <button type="submit" class="btn btn-sm btn-success w-100" style="font-size:0.8rem;">
+                            <i class="bi bi-check-lg me-1"></i>Approve
+                        </button>
+                    </form>
+                    <form method="post" action="/batch/reject/{{ doc.id }}" class="flex-fill" onsubmit="return confirm('Reject this document?');">
+                        <button type="submit" class="btn btn-sm btn-danger w-100" style="font-size:0.8rem;">
+                            <i class="bi bi-x-lg me-1"></i>Reject
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card animate-in">
+    <div class="card-section text-center py-5">
+        <i class="bi bi-clipboard-check" style="font-size:2.5rem;color:var(--gray-300);"></i>
+        <p class="mt-2" style="color:var(--gray-400);">No documents pending manual review.</p>
+        <a href="/batch/dashboard" class="btn btn-sm btn-outline-primary mt-2">Go to Batch Dashboard</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
