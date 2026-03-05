@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # SmartPAN Verification System v2.0
 
 AI-powered PAN document verification MVP that accepts a **single combined PDF** containing the PAN application form and all supporting proof documents. The system auto-detects document types per page, extracts fields using PaddleOCR, runs matching logic, and classifies results.
@@ -143,3 +144,7 @@ Single Combined PDF
 
 ---
 *Demo/MVP - Not for production use*
+=======
+# OCR_ICR_IDP
+DMS-integrated PAN AI-Based Document Verification System.
+>>>>>>> ca490f2219f9ba841c78d8411ca9b16d78609d91
