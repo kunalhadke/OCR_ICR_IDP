@@ -22,10 +22,24 @@ STATIC_DIR = Path(os.environ.get("STATIC_DIR", str(PROJECT_ROOT / "frontend" / "
 DB_PATH = Path(os.environ.get("DB_PATH", str(PROJECT_ROOT / "pan_verification.db")))
 
 # ── Poppler (for pdf2image: auto-detect or override via env) ──
-# Set POPPLER_PATH env var if poppler is not in system PATH
-# e.g., POPPLER_PATH=C:\poppler\Library\bin  or  /usr/local/bin
-_DEFAULT_POPPLER = str(Path.home() / "poppler" / "poppler-24.08.0" / "Library" / "bin")
-POPPLER_PATH = os.environ.get("POPPLER_PATH", _DEFAULT_POPPLER)
+# Set POPPLER_PATH env var to override, otherwise auto-detected from WinGet install
+def _find_poppler_auto() -> str:
+    """Auto-detect Poppler from WinGet or legacy manual install locations."""
+    # 1. WinGet install path (oschwartz10612.Poppler)
+    winget_pkgs = Path.home() / "AppData" / "Local" / "Microsoft" / "WinGet" / "Packages"
+    if winget_pkgs.exists():
+        for pkg in sorted(winget_pkgs.glob("oschwartz*"), reverse=True):
+            for bin_dir in pkg.rglob("Library/bin"):
+                if (bin_dir / "pdftoppm.exe").exists():
+                    return str(bin_dir)
+    # 2. Legacy manual install path
+    legacy = Path.home() / "poppler" / "poppler-24.08.0" / "Library" / "bin"
+    if legacy.exists():
+        return str(legacy)
+    # 3. Let pdf2image use system PATH
+    return ""
+
+POPPLER_PATH = os.environ.get("POPPLER_PATH", _find_poppler_auto())
 
 # ── OCR Settings ──
 OCR_LANG = os.environ.get("OCR_LANG", "en")

@@ -45,7 +45,6 @@ def startup():
     print(f"  Open http://{HOST}:{PORT} in your browser")
     print("=" * 55)
 
-
 # ─────────────────────────── Pages ───────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
